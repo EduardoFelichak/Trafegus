@@ -74,7 +74,7 @@ with st.sidebar.form("config_form"):
 
     executar_button = st.form_submit_button(label='Executar')
 
-st.image(os.path.join(script_directory, 'logo.svg'), width=300)
+st.image(os.path.join(script_directory, 'logo.png'), width=300)
 st.title('Motoristas Analisados:')
 with st.spinner("Calculando..."):
     if executar_button and any(porcentagens.values()) and sum(porcentagens.values()) == 100:
