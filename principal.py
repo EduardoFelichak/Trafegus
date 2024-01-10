@@ -76,36 +76,46 @@ with st.sidebar.form("config_form"):
 
 st.image(os.path.join(script_directory, 'logo.png'), width=300)
 st.title('Motoristas Analisados:')
+executado_com_sucesso = False
+
 with st.spinner("Calculando..."):
-    if executar_button and any(porcentagens.values()) and sum(porcentagens.values()) == 100:
-        porcentagens_normalizadas = {codigo: valor / 100 for codigo, valor in porcentagens.items()}
-        df['pontuacao'] = df.apply(calcular_pontuacao, porcentagens=porcentagens_normalizadas, axis=1)
+    if executar_button:
+        if all(0 <= valor <= 100 for valor in porcentagens.values()) and sum(porcentagens.values()) == 100:
+            porcentagens_normalizadas = {codigo: valor / 100 for codigo, valor in porcentagens.items()}
+            df['pontuacao'] = df.apply(calcular_pontuacao, porcentagens=porcentagens_normalizadas, axis=1)
 
-        if df[[f'esis_espa_codigo_{codigo}' for codigo in eventos_na_base]].sum().sum() == 0:
-            st.warning('Nenhum evento encontrado na base de dados.')
+            if df[[f'esis_espa_codigo_{codigo}' for codigo in eventos_na_base]].sum().sum() == 0:
+                st.warning('Nenhum evento encontrado na base de dados.')
+            else:
+                pontuacao_total = df.groupby('motorista')['pontuacao'].sum().reset_index()
+                pontuacao_total['pontuacao'] = pontuacao_total['pontuacao'].round(2)
+                motoristas_ordenados = pontuacao_total.sort_values(by='pontuacao', ascending=False)
+                motoristas_selecionados = motoristas_ordenados['motorista'].head(quantidade_motoristas)
+
+                for motorista in motoristas_selecionados:
+                    with st.expander(f'Motorista {motorista}'):
+                        st.write(f"Pontuação Total: {pontuacao_total[pontuacao_total['motorista'] == motorista]['pontuacao'].values[0]}")
+
+                        df_eventos_diarios = df[df['motorista'] == motorista].groupby('esis_data_leitura').size().reset_index(name='quantidade')
+                        plotar_grafico_barras(df_eventos_diarios)
+
+                        df_eventos_motorista = df[df['motorista'] == motorista][[f'esis_espa_codigo_{codigo}' for codigo in eventos_na_base]]
+                        eventos_motorista = []
+                        for codigo, nome in nomes_eventos.items():
+                            if f'esis_espa_codigo_{codigo}' in df_eventos_motorista.columns and porcentagens_normalizadas.get(codigo, 0) > 0:
+                                if df_eventos_motorista[f'esis_espa_codigo_{codigo}'].sum() > 0:
+                                    eventos_motorista.append({'evento': nome, 'quantidade': df_eventos_motorista[f'esis_espa_codigo_{codigo}'].sum()})
+
+                        df_eventos_motorista = pd.DataFrame(eventos_motorista)
+                        if not df_eventos_motorista.empty:
+                            plotar_grafico_pizza(df_eventos_motorista)
+
+            executado_com_sucesso = True
         else:
-            pontuacao_total = df.groupby('motorista')['pontuacao'].sum().reset_index()
-            pontuacao_total['pontuacao'] = pontuacao_total['pontuacao'].round(2)
-            motoristas_ordenados = pontuacao_total.sort_values(by='pontuacao', ascending=False)
-            motoristas_selecionados = motoristas_ordenados['motorista'].head(quantidade_motoristas)
+            st.warning('Por favor, preencha as porcentagens corretamente.')
 
-            for motorista in motoristas_selecionados:
-                with st.expander(f'Motorista {motorista}'):
-                    st.write(f"Pontuação Total: {pontuacao_total[pontuacao_total['motorista'] == motorista]['pontuacao'].values[0]}")
-
-                    df_eventos_diarios = df[df['motorista'] == motorista].groupby('esis_data_leitura').size().reset_index(name='quantidade')
-                    plotar_grafico_barras(df_eventos_diarios)
-
-                    df_eventos_motorista = df[df['motorista'] == motorista][[f'esis_espa_codigo_{codigo}' for codigo in eventos_na_base]]
-                    eventos_motorista = []
-                    for codigo, nome in nomes_eventos.items():
-                        if f'esis_espa_codigo_{codigo}' in df_eventos_motorista.columns and porcentagens_normalizadas.get(codigo, 0) > 0:
-                            if df_eventos_motorista[f'esis_espa_codigo_{codigo}'].sum() > 0:
-                                eventos_motorista.append({'evento': nome, 'quantidade': df_eventos_motorista[f'esis_espa_codigo_{codigo}'].sum()})
-
-                    df_eventos_motorista = pd.DataFrame(eventos_motorista)
-                    if not df_eventos_motorista.empty:
-                        plotar_grafico_pizza(df_eventos_motorista)
-
-    else:
-        st.warning('Por favor, preencha as porcentagens corretamente.')
+if not executado_com_sucesso:
+    st.write("Bem-vindo ao sistema de Avaliação de Risco de Motoristas!")
+    st.write("Preencha as colunas à esquerda com as porcentagens desejadas para cada evento.")
+    st.write("Certifique-se de que a soma de todas as porcentagens seja 100%.")
+    st.write("Depois, clique no botão 'Executar' para visualizar os resultados.")
