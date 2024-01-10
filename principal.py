@@ -113,6 +113,7 @@ with st.spinner("Calculando..."):
             executado_com_sucesso = True
         else:
             st.warning('Por favor, preencha as porcentagens corretamente.')
+            executado_com_sucesso = True
 
 if not executado_com_sucesso:
     st.write("Bem-vindo ao sistema de Avaliação de Risco de Motoristas!")
